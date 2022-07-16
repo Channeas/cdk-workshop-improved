@@ -7,12 +7,13 @@ import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 
 export class HitCounter extends Construct {
     public readonly hitQueue: sqs.Queue;
+    private hitTable: dynamoDB.Table;
     private processingLambda: lambda.Function;
 
     constructor(scope: Construct, id: string) {
         super(scope, id);
 
-        const table = new dynamoDB.Table(this, "Hits", {
+        this.hitTable = new dynamoDB.Table(this, "Hits", {
             partitionKey: { name: "path", type: dynamoDB.AttributeType.STRING },
             billingMode: dynamoDB.BillingMode.PAY_PER_REQUEST,
         });
@@ -26,13 +27,13 @@ export class HitCounter extends Construct {
             handler: "hitCounter.handler",
             code: lambda.Code.fromAsset("lambda"),
             environment: {
-                HITS_TABLE_NAME: table.tableName,
+                HITS_TABLE_NAME: this.hitTable.tableName,
             },
         });
 
         const eventSource = new SqsEventSource(this.hitQueue);
         this.processingLambda.addEventSource(eventSource);
 
-        table.grantReadWriteData(this.processingLambda);
+        this.hitTable.grantReadWriteData(this.processingLambda);
     }
 }
